@@ -39,6 +39,25 @@ defmodule Silk do
     :wbr
   ]
 
+  @typedoc """
+  A valid HTML tag name represented as an atom.
+  """
+  @type tag_name :: atom()
+
+  @typedoc """
+  HTML attributes represented as keyword list.
+  Keys are attribute names and values are attribute values.
+  """
+  @type attributes :: keyword()
+
+  @typedoc """
+  The inner content of an HTML tag.
+  Can be any Elixir term that can be converted to a string.
+  """
+  @type content :: any()
+
+  defguardp is_void(name) when name in @void_tags
+
   @doc """
   Generates an HTML tag. If the tag is a void tag (e.g. `<br>`, `<img>`, etc.), 
   it will be self-closing.
@@ -47,59 +66,78 @@ defmodule Silk do
 
   ## Examples
   ```
-    iex> tag :p, class: "info" do
-    ...>   "Hello"
-    ...> end
-
-    "<p class=\\"info\\">Hello</p>"
-
-    iex> tag :br
-
-    "<br />"
-  ```
-  """
-  @spec macro tag(atom, keyword, Macro.t()) :: Macro.t()
-  defmacro tag(name, opts \\ [], do: block) do
-    if name in @void_tags do
-      void_tag(name, opts)
-    else
-      paired_tag(name, opts, do: block)
-    end
+  tag :p, class: "info" do
+    "Hello"
   end
 
+  <p class="info">Hello</p>
+
+  tag :br
+
+  <br />
+  ```
+  """
+  @spec tag(tag_name()) :: binary()
+  defmacro tag(name) when is_void(name),
+    do: void_tag(name, [])
+
+  @spec tag(tag_name()) :: binary()
+  defmacro tag(name),
+    do: paired_tag(name, [], do: "")
+
+  @spec tag(tag_name(), do: content()) :: binary()
+  defmacro tag(name, do: block),
+    do: paired_tag(name, [], do: block)
+
+  @spec tag(tag_name(), attributes()) :: binary()
+  defmacro tag(name, opts) when is_void(name),
+    do: void_tag(name, opts)
+
+  @spec tag(tag_name(), attributes()) :: binary()
+  defmacro tag(name, opts) do
+    {block, opts} = Keyword.pop(opts, :do, "")
+    paired_tag(name, opts, do: block)
+  end
+
+  @spec tag(tag_name(), attributes(), do: content()) :: binary()
+  defmacro tag(name, opts, do: block),
+    do: paired_tag(name, opts, do: block)
+
   @doc false
-  @spec paired_tag(atom, keyword, do: Macro.t()) :: Macro.t()
-  defp paired_tag(name, opts \\ [], do: block) do
+  @spec paired_tag(tag_name(), attributes(), do: content()) :: Macro.t()
+  defp paired_tag(name, opts, do: block) do
     contents =
       case block do
         {:__block__, _, exprs} -> exprs
         expr -> [expr]
       end
 
-    quote do
-      attributes =
-        unquote(opts)
-        |> Enum.map(fn {attr, value} -> " #{attr}=\"#{value}\"" end)
-        |> Enum.join("")
+    attributes = parse_attributes(opts)
 
+    quote do
       inner_content =
         [unquote_splicing(Enum.map(contents, &quote(do: to_string(unquote(&1)))))]
         |> IO.iodata_to_binary()
 
-      "<#{unquote(name)}#{attributes}>#{inner_content}</#{unquote(name)}>"
+      "<#{unquote(name)}#{unquote(attributes)}>#{inner_content}</#{unquote(name)}>"
     end
   end
 
   @doc false
-  @spec void_tag(atom, keyword) :: Macro.t()
-  defp void_tag(name, opts \\ []) do
-    quote do
-      attributes =
-        unquote(opts)
-        |> Enum.map(fn {attr, value} -> " #{attr}=\"#{value}\"" end)
-        |> Enum.join("")
+  @spec void_tag(tag_name(), attributes()) :: Macro.t()
+  defp void_tag(name, opts) do
+    attributes = parse_attributes(opts)
 
-      "<#{unquote(name)}#{attributes} />"
+    quote do
+      "<#{unquote(name)}#{unquote(attributes)} />"
     end
+  end
+
+  @doc false
+  @spec parse_attributes(attributes()) :: binary()
+  defp parse_attributes(attributes) do
+    attributes
+    |> Enum.map(fn {attr, value} -> " #{attr}=\"#{value}\"" end)
+    |> Enum.join("")
   end
 end
