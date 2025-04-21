@@ -35,7 +35,7 @@ Start by importing the Silk module and using the tag macro:
 ```elixir
 import Silk
 
-html = tag :section, class: "content" do
+tag :section, class: "content" do
   tag :h1, do: "Welcome"
 end
 ```

@@ -22,6 +22,7 @@ defmodule Silk do
   </div>
   ```
   """
+
   @void_tags [
     :aread,
     :base,
@@ -40,9 +41,9 @@ defmodule Silk do
   ]
 
   @typedoc """
-  A valid HTML tag name represented as an atom.
+  A valid HTML tag name represented as an atom or binary.
   """
-  @type tag_name :: atom()
+  @type tag_name :: atom() | binary()
 
   @typedoc """
   HTML attributes represented as keyword list.
@@ -54,7 +55,7 @@ defmodule Silk do
   The inner content of an HTML tag.
   Can be any Elixir term that can be converted to a string.
   """
-  @type content :: any()
+  @type content :: String.t() | number() | atom() | [content()] | tuple() | map() | nil
 
   defguardp is_void(name) when name in @void_tags
 
@@ -66,15 +67,13 @@ defmodule Silk do
 
   ## Examples
   ```
-  tag :p, class: "info" do
+  iex> tag :p, class: "info" do
     "Hello"
   end
+  "<p class=\"info\">Hello</p>"
 
-  <p class="info">Hello</p>
-
-  tag :br
-
-  <br />
+  iex> tag :br
+  "<br />"
   ```
   """
   @spec tag(tag_name()) :: binary()
@@ -106,38 +105,75 @@ defmodule Silk do
   @doc false
   @spec paired_tag(tag_name(), attributes(), do: content()) :: Macro.t()
   defp paired_tag(name, opts, do: block) do
-    contents =
-      case block do
-        {:__block__, _, exprs} -> exprs
-        expr -> [expr]
+    content =
+      quote do
+        format_content(unquote(block))
       end
 
-    attributes = parse_attributes(opts)
-
     quote do
-      inner_content =
-        [unquote_splicing(Enum.map(contents, &quote(do: to_string(unquote(&1)))))]
-        |> IO.iodata_to_binary()
+      inner_content = unquote(content)
 
-      "<#{unquote(name)}#{unquote(attributes)}>#{inner_content}</#{unquote(name)}>"
+      attributes = Enum.map unquote(opts), fn {attr, value} -> 
+        " #{attr}=\"#{value}\""
+      end
+
+      "<#{unquote(name)}#{attributes}>#{inner_content}</#{unquote(name)}>"
     end
   end
 
   @doc false
   @spec void_tag(tag_name(), attributes()) :: Macro.t()
   defp void_tag(name, opts) do
-    attributes = parse_attributes(opts)
-
     quote do
-      "<#{unquote(name)}#{unquote(attributes)} />"
+      attributes = Enum.map unquote(opts), fn {attr, value} -> 
+        " #{attr}=\"#{value}\""
+      end
+
+      "<#{unquote(name)}#{attributes} />"
     end
   end
 
-  @doc false
-  @spec parse_attributes(attributes()) :: binary()
-  defp parse_attributes(attributes) do
-    attributes
-    |> Enum.map(fn {attr, value} -> " #{attr}=\"#{value}\"" end)
-    |> Enum.join("")
-  end
+  @doc """
+  Formats content based on its type for optimal HTML rendering.
+
+  ## Type-specific formatting:
+  - Lists are processed recursively, formatting each element
+  - Maps are converted to their string representation via inspect
+  - Tuples are converted to their string representation via inspect
+  - Other types are simply converted to strings
+
+  ## Examples
+
+  ```
+  iex> format_content(["Hello", 123])
+  ["Hello", "123"]
+
+  iex> format_content(%{name: "John"})
+  "%{name: \"John\"}"
+
+  iex> format_content({:ok, 42})
+  "{:ok, 42}"
+
+  iex> format_content("Hello")
+  "Hello"
+
+  iex> format_content(123)
+  "123"
+  ```
+  """
+  @spec format_content(list()) :: [String.t()]
+  def format_content(content) when is_list(content),
+    do: Enum.map(content, &format_content/1)
+
+  @spec format_content(map()) :: String.t()
+  def format_content(content) when is_map(content),
+    do: inspect(content)
+
+  @spec format_content(tuple()) :: String.t()
+  def format_content(content) when is_tuple(content),
+    do: inspect(content)
+
+  @spec format_content(any()) :: String.t()
+  def format_content(content),
+    do: to_string(content)
 end
