@@ -1,10 +1,9 @@
 # Silk
+[![Tests](https://github.com/PenguinBoi12/silk/actions/workflows/test.yml/badge.svg)](https://github.com/PenguinBoi12/silk/actions/workflows/test.yml)
+[![Silk version](https://img.shields.io/hexpm/v/silk_html.svg)](https://hex.pm/packages/silk_html)
 
 Silk is a lightweight Elixir DSL for generating HTML in a clean, expressive, 
 and composable way - using just Elixir syntax.
-
-It gives you a tag macro that feels native to the language, making it easy to build dynamic HTML 
-structures without templates, markup files, or string concatenation.
 
 ## Features
 
@@ -19,13 +18,10 @@ Silk is a great fit for:
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `silk` to your list of dependencies in `mix.exs`:
-
 ```elixir
 def deps do
   [
-    {:silk, "~> 0.1.0"}
+    {:silk_html, "~> 0.1.0"}
   ]
 end
 ```
@@ -56,7 +52,6 @@ Void tags like img, br, or input:
 tag :img, src: "/logo.png", alt: "Logo"
 ````
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/silk>.
+# License
 
+Silk is released under GPL-3.0 - See the [LICENCE](LICENSE).
