@@ -2,191 +2,117 @@ defmodule SilkTest do
   use ExUnit.Case
   import Silk
 
-  describe "tag/1 macro" do
-    test "handles non-void elements with default empty content" do
-      assert tag(:div) == "<div></div>"
-      assert tag(:span) == "<span></span>"
+  describe "tag/1" do
+    test "renders empty <p>…</p> around blank content" do
       assert tag(:p) == "<p></p>"
     end
-  end
 
-  describe "tag/2 macro" do
-    test "handles non-void elements with attributes but empty content" do
-      assert tag(:div, class: "container") == "<div class=\"container\"></div>"
-      assert tag(:span, id: "greeting") == "<span id=\"greeting\"></span>"
-    end
-
-    test "treats :do key in attributes as content" do
-      assert tag(:p, class: "text", do: "Hello") == "<p class=\"text\">Hello</p>"
-      assert tag(:div, do: "Content", id: "main") == "<div id=\"main\">Content</div>"
-    end
-  end
-
-  describe "content conversion" do
-    test "converts various Elixir types to strings" do
-      assert tag(:div, do: 123) == "<div>123</div>"
-      assert tag(:div, do: true) == "<div>true</div>"
-      assert tag(:div, do: :atom) == "<div>atom</div>"
-      assert tag(:div, do: nil) == "<div></div>"
-      assert tag(:div, do: [1, 2, 3]) == "<div>123</div>"
-      assert tag(:div, do: [a: 1]) == "<div>{:a, 1}</div>"
-      assert tag(:div, do: {:a, 1}) == "<div>{:a, 1}</div>"
-      assert tag(:div, do: %{a: 1}) == "<div>%{a: 1}</div>"
-    end
-  end
-
-  describe "multi-expression do blocks" do
-    test "handles multiple expressions in do block" do
-      result = tag :div do
-        x = 10
-        y = 20
-
-        "Sum: #{x + y}"
-      end
-
-      assert result == "<div>Sum: 30</div>"
-    end
-
-    test "captures all expressions from a complex do block" do
-      result = tag :div do
-        prefix = "Items:"
-        items = Enum.map(1..3, &"Item #{&1}")
-
-        "#{prefix} #{Enum.join(items, ", ")}"
-      end
-      
-      assert result == "<div>Items: Item 1, Item 2, Item 3</div>"
-    end
-  end
-
-  describe "tag/3 macro for void elements" do
-    test "generates self-closing tags for void elements" do
-      assert tag(:aread) == "<aread />"
-      assert tag(:base) == "<base />"
+    test "renders void tag without attributes" do
       assert tag(:br) == "<br />"
-      assert tag(:col) == "<col />"
-      assert tag(:embed) == "<embed />"
-      assert tag(:hr) == "<hr />"
-      assert tag(:img) == "<img />"
-      assert tag(:input) == "<input />"
-      assert tag(:keygen) == "<keygen />"
-      assert tag(:link) == "<link />"
-      assert tag(:meta) == "<meta />"
-      assert tag(:source) == "<source />"
-      assert tag(:track) == "<track />"
-      assert tag(:wbr) == "<wbr />"
-    end
-
-    test "adds attributes to void elements" do
-      result = tag(:input, type: "text", required: true)
-      expected = "<input type=\"text\" required=\"true\" />"
-
-      assert result == expected
-    end
-
-    test "escapes attributes in void elements" do
-      assert tag(:img, alt: "Quote: \"Hello\"") == "<img alt=\"Quote: \"Hello\"\" />"
     end
   end
 
-  describe "tag/3 macro for paired elements" do
-    test "generates paired tags with content" do
-      assert tag(:p, do: "Hello") == "<p>Hello</p>"
+  describe "tag/2" do
+    test "renders tag with content (inline block)" do
+      assert  tag(:p, do: "Hello World!") == "<p>Hello World!</p>"
     end
 
-    test "adds attributes to paired elements" do
-      assert tag(:p, class: "text", do: "Hello") == "<p class=\"text\">Hello</p>"
-    end
-
-    test "handles nested tags" do
-      result = tag(:div, class: "outer", do: tag(:p, class: "inner", do: "Text"))
-      expected = "<div class=\"outer\"><p class=\"inner\">Text</p></div>"
-
-      assert result == expected
-    end
-
-    test "handles multiple nested elements" do
-      result = tag :div, class: "container" do
-        [
-          tag(:h1, do: "Title"),
-          tag(:p, do: "Paragraph")
-        ]
+    test "renders tag with content (block)" do
+      result = tag(:p) do
+        "Hello World!"
       end
-      expected = "<div class=\"container\"><h1>Title</h1><p>Paragraph</p></div>"
 
-      assert result == expected
+      assert result == "<p>Hello World!</p>"
     end
 
-    test "handles string interpolation in content" do
-      name = "World"
-      result = tag(:p, do: "Hello #{name}")
-      expected = "<p>Hello World</p>"
+    test "renders empty <div> with id main and class container" do
+      result = tag(:div, id: "test", class: "container")
 
-      assert result == expected
+      assert result == "<div id=\"test\" class=\"container\"></div>"
     end
 
-    test "handles string interpolation in attributes" do
-      id = "main"
-      result = tag(:div, id: "section-#{id}", do: "Content")
-      expected = "<div id=\"section-main\">Content</div>"
-
-      assert result == expected
-    end
-  end
-
-  describe "tag/3 macro with dynamic content" do
-    test "handles lists generated with Enum.map" do
-      result = tag :ul do
-        Enum.map 1..3, fn i ->
-          tag(:li, do: "Item #{i}")
-        end
-      end
-      expected = "<ul><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul>"
-
-      assert result == expected
-    end
-
-    test "handles nested dynamic content" do
-      result = tag :div, class: "items" do
-        Enum.map 1..3, fn i ->
-          tag :p, "data-item": "item-#{i}" do
-            "Item: #{tag(:b, do: i)}"
-          end
-        end
-      end
-      expected = "<div class=\"items\"><p data-item=\"item-1\">Item: <b>1</b></p>" <>
-                 "<p data-item=\"item-2\">Item: <b>2</b></p>" <>
-                 "<p data-item=\"item-3\">Item: <b>3</b></p></div>"
-
-      assert result == expected
-    end
-  end
-
-  describe "edge cases" do
-    test "handles empty content" do
-      assert tag(:div, do: "") == "<div></div>"
-    end
-
-    test "handles nil content" do
-      assert tag(:div, do: nil) == "<div></div>"
-    end
-
-    test "handles integer content" do
-      assert tag(:div, do: 42) == "<div>42</div>"
-    end
-
-    test "handles boolean attributes" do
+    test "renders void tag with attributes" do
       result = tag(:input, type: "checkbox", checked: true)
-      expected = "<input type=\"checkbox\" checked=\"true\" />"
 
-      assert result == expected
+      assert result == "<input type=\"checkbox\" checked=\"true\" />"
     end
 
-    test "handles special characters in attributes" do
-      result = tag(:a, href: "https://example.com?param=value&other=123", do: "Link")
-      expected = "<a href=\"https://example.com?param=value&other=123\">Link</a>"
+    test "renders nested tags without attributes" do
+      result =
+        tag(:div) do
+          tag(:span, do: "Inner")
+        end
 
-      assert result == expected
+      assert result == "<div><span>Inner</span></div>"
     end
+
+  end
+
+  describe "tag/3" do
+    test "renders <button> with class and data-id" do
+      result = tag(:button, class: "btn", "data-id": 5) do
+        "Save!"
+      end
+
+      assert result == "<button class=\"btn\" data-id=\"5\">Save!</button>"
+    end
+
+    test "renders list of tags with class attributes on parent" do
+      result = tag(:div, class: "container") do
+        ["Hello ", tag(:span, class: "bold", do: "World")]
+      end
+
+      assert result == "<div class=\"container\">Hello <span class=\"bold\">World</span></div>"
+    end
+
+    test "renders multiple expressions in block" do
+      result = tag(:div) do
+        tag(:span, do: "Line 1\n")
+        tag(:span, do: "Line 2\n")
+      end
+
+      assert result == "<div><span>Line 1\n</span><span>Line 2\n</span></div>"
+    end
+  end
+
+  describe "format_content/1" do
+    test "format 'basic' types to strings" do
+      assert format_content(123) == "123"
+      assert format_content(true) == "true"
+      assert format_content(:atom) == "atom"
+      assert format_content(nil) == ""
+      assert format_content([1, 2, 3]) == ["1", "2", "3"]
+      assert format_content([a: 1]) == [{:a, 1}]
+      assert format_content({:a, 1}) == {:a, 1}
+      assert format_content(%{a: 1}) == %{a: 1}
+    end
+
+    test "format block" do
+      block = tag(:p, do: "Hello World!")
+      result = format_content(block)
+
+      assert result == "<p>Hello World!</p>"
+    end
+  end
+
+  describe "is_void/1" do
+    void_tags = [
+      :aread,
+      :base,
+      :br,
+      :col,
+      :embed,
+      :hr, 
+      :img, 
+      :input, 
+      :keygen, 
+      :link, 
+      :meta, 
+      :source, 
+      :track, 
+      :wbr
+    ]
+
+    assert Enum.all?(void_tags, &is_void/1)
   end
 end

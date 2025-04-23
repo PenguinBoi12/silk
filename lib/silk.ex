@@ -6,6 +6,8 @@ defmodule Silk do
   ## Examples
 
   ```elixir
+  import Silk
+
   tag :div, class: "items" do
     Enum.map 1..10, fn i ->
       tag :p, "data-item": "item-\#{i}" do
@@ -43,7 +45,7 @@ defmodule Silk do
   @typedoc """
   A valid HTML tag name represented as an atom or binary.
   """
-  @type tag_name :: atom() | binary()
+  @type tag_name :: atom()
 
   @typedoc """
   HTML attributes represented as keyword list.
@@ -57,7 +59,7 @@ defmodule Silk do
   """
   @type content :: String.t() | number() | atom() | [content()] | tuple() | map() | nil
 
-  defguardp is_void(name) when name in @void_tags
+  defguard is_void(name) when name in @void_tags
 
   @doc """
   Generates an HTML tag. If the tag is a void tag (e.g. `<br>`, `<img>`, etc.), 
@@ -102,26 +104,20 @@ defmodule Silk do
   defmacro tag(name, opts, do: block),
     do: paired_tag(name, opts, do: block)
 
-  @doc false
   @spec paired_tag(tag_name(), attributes(), do: content()) :: Macro.t()
   defp paired_tag(name, opts, do: block) do
-    content =
-      quote do
-        format_content(unquote(block))
-      end
-
     quote do
-      inner_content = unquote(content)
+      content = unquote(format_content(block))
 
-      attributes = Enum.map unquote(opts), fn {attr, value} -> 
-        " #{attr}=\"#{value}\""
-      end
+      attrs =
+        unquote(opts)
+        |> Enum.map(fn {attr, val} -> " #{attr}=\"#{val}\"" end)
+        |> IO.iodata_to_binary()
 
-      "<#{unquote(name)}#{attributes}>#{inner_content}</#{unquote(name)}>"
+      "<#{unquote(name)}#{attrs}>#{content}</#{unquote(name)}>"
     end
   end
 
-  @doc false
   @spec void_tag(tag_name(), attributes()) :: Macro.t()
   defp void_tag(name, opts) do
     quote do
@@ -161,17 +157,26 @@ defmodule Silk do
   "123"
   ```
   """
+  @spec format_content(Macro.t()) :: Macro.t()
+  def format_content({:__block__, _, elements}) do
+    quote do
+      unquote(elements)
+      |> Enum.map(fn element -> format_content(element) end)
+      |> IO.iodata_to_binary()
+    end
+  end
+
   @spec format_content(list()) :: [String.t()]
   def format_content(content) when is_list(content),
     do: Enum.map(content, &format_content/1)
 
   @spec format_content(map()) :: String.t()
   def format_content(content) when is_map(content),
-    do: inspect(content)
+    do: content
 
   @spec format_content(tuple()) :: String.t()
   def format_content(content) when is_tuple(content),
-    do: inspect(content)
+    do: content
 
   @spec format_content(any()) :: String.t()
   def format_content(content),

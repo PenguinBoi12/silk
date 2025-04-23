@@ -2,7 +2,7 @@ defmodule Silk.MixProject do
   use Mix.Project
 
   @source_url "https://github.com/PenguinBoi12/silk"
-  @version "0.1.0"
+  @version "0.2.1"
 
   def project do
     [
